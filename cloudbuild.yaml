@@ -1,3 +1,84 @@
+# cloudbuild.yaml
+
 steps:
+  # Шаг 1: Определяем, что за проект
   - name: 'gcr.io/cloud-builders/gcloud'
-    args: ['app', 'browse']
+    id: 'Identify Project Type'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Identifying project type"
+        if [ -f "package.json" ]; then
+          echo "This is a Node.js project"
+          echo "node" > PROJECT_TYPE
+        elif [ -f "requirements.txt" ]; then
+          echo "This is a Python project"
+          echo "python" > PROJECT_TYPE
+        else
+          echo "Unknown project type"
+          exit 1
+        fi
+
+  # Шаг 2: Устанавливаем зависимости и собираем проект
+  - name: 'gcr.io/cloud-builders/npm'
+    id: 'Install Dependencies (Node.js)'
+    waitFor: ['Identify Project Type']
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if [ "$(cat PROJECT_TYPE)" == "node" ]; then
+          npm install
+          npm run build  # Для Node.js проекта
+        fi
+
+  - name: 'gcr.io/cloud-builders/python'
+    id: 'Install Dependencies (Python)'
+    waitFor: ['Identify Project Type']
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if [ "$(cat PROJECT_TYPE)" == "python" ]; then
+          pip install -r requirements.txt
+          python setup.py install
+        fi
+
+  # Шаг 3: Развертывание проекта в зависимости от типа
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Deploy to Cloud Run (Node.js)'
+    waitFor: ['Install Dependencies (Node.js)']
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if [ "$(cat PROJECT_TYPE)" == "node" ]; then
+          echo "Deploying to Cloud Run"
+          gcloud run deploy my-node-app --image gcr.io/$PROJECT_ID/my-node-app --platform managed
+        fi
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Deploy to App Engine (Python)'
+    waitFor: ['Install Dependencies (Python)']
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if [ "$(cat PROJECT_TYPE)" == "python" ]; then
+          echo "Deploying to App Engine"
+          gcloud app deploy
+        fi
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Deploy Static Site (React/Next.js)'
+    waitFor: ['Identify Project Type']
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if [ -f "build/index.html" ]; then
+          echo "Deploying static site to Firebase Hosting"
+          firebase deploy --only hosting
+        fi
+
