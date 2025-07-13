@@ -1,1 +1,1 @@
-# main
+# Cursor-projects
