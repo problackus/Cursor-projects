@@ -81,4 +81,8 @@ steps:
           echo "Deploying static site to Firebase Hosting"
           firebase deploy --only hosting
         fi
-
+        
+options:
+  env:
+    - 'PROJECT_TYPE=node'
+    - 'NODE_ENV=production'
